@@ -1,11 +1,11 @@
 import express from 'express';
-import pg from 'pg';
 import dotenv from 'dotenv';
 import { LogDriver, Colors } from './log/log';
 import { db, migrate } from './db';
 import authRouter from './routes/auth';
 import { authenticate, AuthenticatedRequest } from './middleware/auth';
 import cookie from 'cookie-parser';
+import cors from 'cors';
 
 const NoColor = process.env.NO_COLOR !== undefined && process.env.NO_COLOR !== "";
 
@@ -60,8 +60,13 @@ logger.loader('Connecting to the database...', Promise.all([
     logger.error('Database connection error:', err);
 }));
 
-app.use(express.json());
+const corsConfig = {
+    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    credentials: true
+}
 
+app.use(express.json());
+app.use(cors(corsConfig));
 app.use(cookie());
 
 app.use('/auth', authRouter);

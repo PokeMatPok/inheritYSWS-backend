@@ -1,14 +1,36 @@
 import express from 'express';
-import { authenticate, generateToken, UserPayload } from '../middleware/auth';
+import { authenticate, AuthenticatedRequest, generateToken, UserPayload } from '../middleware/auth';
 import { db } from '../db';
+import cors from 'cors';
+
+const corsConfig = {
+    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    credentials: true
+}
 
 const authRouter = express.Router();
 
-authRouter.post('/login', (req, res) => {
-    const { username, password } = req.body;
+authRouter.get('/check', cors(corsConfig), (req, res, next) => {
+    authenticate(req, res, next, (_) => {
+        return res.status(200).json({ authenticated: false });
+    });
+}, (req, res) => {
+    return res.status(200).json({ authenticated: true, user: (req as AuthenticatedRequest).user });
+});
 
-    db.query('SELECT * FROM users WHERE username = $1', [username])
+authRouter.get('/login', (req, res, next) => {
+    authenticate(req, res, next, (message) => {
+        const base_oauth = "https://auth.hackclub.com/oauth/authorize?client_id=458bb3d47635184bf985866fa2f917bc&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fauth%2Foauth&response_type=code&scope=openid+email+name+profile+verification_status+slack_id"
+        const email = req.query.email as string;
 
+        if (!email) {
+            return res.status(401).redirect(base_oauth);
+        } else {
+            return res.status(401).redirect(base_oauth + `&login_hint=${encodeURIComponent(email)}`);
+        }
+    });
+}, (req, res) => {
+    res.sendStatus(200);
 });
 
 authRouter.get('/oauth', (req, res) => {
@@ -49,7 +71,7 @@ authRouter.get('/oauth', (req, res) => {
                     db.query('SELECT * FROM users WHERE openid = $1', [userData.id])
                         .then((result) => {
                             if (result.rows.length === 0) {
-                                userData  = userData.identity;
+                                userData = userData.identity;
                                 // User doesn't exist, create a new one
                                 db.query('INSERT INTO users (openid, first_name, last_name, primary_email, slack_id, role) VALUES ($1, $2, $3, $4, $5, $6)', [
                                     userData.id,

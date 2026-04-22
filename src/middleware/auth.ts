@@ -18,11 +18,16 @@ export interface AuthenticatedRequest extends Request {
     user?: UserPayload;
 }
 
-export function authenticate(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export function authenticate(req: AuthenticatedRequest, res: Response, next: NextFunction, rejectFunc?: (message: string) => void) {
     const token = req.cookies?.token as string;
     
     if (!token) {
-        return res.status(401).json({ error: 'Access denied. No token provided.' });
+        if (rejectFunc) {
+            rejectFunc('Access denied. No token provided.');
+            return;
+        } else {
+            return res.status(401).json({ error: 'Access denied. No token provided.' });
+        }
     }
     
     try {
@@ -30,7 +35,12 @@ export function authenticate(req: AuthenticatedRequest, res: Response, next: Nex
         req.user = decoded;
         next();
     } catch (error) {
-        return res.status(400).json({ error: 'Invalid token.' });
+        if (rejectFunc) {
+            rejectFunc('Invalid token.');
+            return;
+        } else {
+            return res.status(400).json({ error: 'Invalid token.' });
+        }
     }
 }
 

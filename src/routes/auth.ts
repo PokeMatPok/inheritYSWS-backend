@@ -168,7 +168,7 @@ authRouter.get('/oauth', async (req, res) => {
                     role: 'user' // Default role, you can modify this as needed
                 };
 
-                res.cookie('token', generateToken(userPayload), { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'none' });
+                res.cookie('token', generateToken(userPayload), { httpOnly: true, secure: true, sameSite: 'none' });
                 return res.redirect((process.env.FRONTEND_URL || 'http://localhost:5173') + '/home');
             } catch (err) {
                 console.error('Error checking user in database:', err);

@@ -23,11 +23,13 @@
   "dependencies": {
     "@slack/bolt": "^4.7.1",
     "@types/cors": "^2.8.19",
+    "@types/express-rate-limit": "^6.0.2",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.4.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.20.0"
   }

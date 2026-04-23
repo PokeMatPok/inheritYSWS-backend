@@ -9,6 +9,7 @@ import cors from 'cors';
 import dns from 'dns';
 import os from 'os';
 import slackApp, { sendMessageToSlack } from './slack/init';
+import rateLimit from 'express-rate-limit';
 
 const NoColor = process.env.NO_COLOR !== undefined && process.env.NO_COLOR !== "";
 
@@ -79,6 +80,12 @@ const corsConfig = {
     credentials: true
 }
 
+var limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 100, // 100 per windowMs (15 min)
+});
+
+app.use(limiter);
 app.use(express.json());
 app.use(cors(corsConfig));
 app.use(cookie());

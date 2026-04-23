@@ -108,7 +108,7 @@ authRouter.get('/oauth', (req, res) => {
             const accessToken = data.access_token;
             if (!accessToken) {
                 console.error('No access token received from Hack Club OAuth:', data);
-                return res.status(500).json({ error: 'Failed to authenticate with Hack Club.' });
+                return res.status(500).json({ error: 'Internal Server Error. Further information not available.' });
             }
 
             fetch('https://auth.hackclub.com/api/v1/me', {
@@ -117,30 +117,34 @@ authRouter.get('/oauth', (req, res) => {
                 }
             }).then((response: Response) => response.json())
                 .then((userData) => {
-                    console.log('Received user data from Hack Club:', userData);
+
+                    const identity = userData.identity || {};
+
+                    //console.log('Received user data from Hack Club:', userData);
+                    // dev only ^
 
                     // write to db if not exists
-                    db.query('SELECT * FROM users WHERE openid = $1', [userData.id])
+                    db.query('SELECT * FROM users WHERE openid = $1', [identity.id])
                         .then((result) => {
                             if (result.rows.length === 0) {
-                                userData = userData.identity;
+
                                 // User doesn't exist, create a new one
                                 db.query('INSERT INTO users (openid, first_name, last_name, primary_email, slack_id, role) VALUES ($1, $2, $3, $4, $5, $6)', [
-                                    userData.id,
-                                    userData.first_name,
-                                    userData.last_name,
-                                    userData.primary_email,
-                                    userData.slack_id,
+                                    identity.id,
+                                    identity.first_name,
+                                    identity.last_name,
+                                    identity.primary_email,
+                                    identity.slack_id,
                                     "user"
                                 ]).catch((err) => {
                                     console.error('Error creating user in database:', err);
-                                    return res.status(500).json({ error: 'Failed to create user in database.' });
+                                    return res.status(500).json({ error: 'Internal Server Error. Further information not available.' });
                                 });
 
                                 try {
-                                    sendWelcome(userData.slack_id, userData.first_name);
+                                    sendWelcome(identity.slack_id, identity.first_name);
 
-                                    db.query('UPDATE users SET slack_welcome_sent = TRUE WHERE openid = $1', [userData.id])
+                                    db.query('UPDATE users SET slack_welcome_sent = TRUE WHERE openid = $1', [identity.id])
                                         .catch((err) => {
                                             console.error('Error updating slack_welcome_sent in database:', err);
                                         });
@@ -161,11 +165,11 @@ authRouter.get('/oauth', (req, res) => {
                         })
                         .catch((err) => {
                             console.error('Error checking user in database:', err);
-                            return res.status(500).json({ error: 'Failed to check user in database.' });
+                            return res.status(500).json({ error: 'Internal Server Error. Further information not available.' });
                         });
                 }).catch((err) => {
                     console.error('Error fetching user data from Hack Club:', err);
-                    return res.status(500).json({ error: 'Failed to fetch user data from Hack Club.' });
+                    return res.status(500).json({ error: 'Internal Server Error. Further information not available.' });
                 });
         });
 });

@@ -15,12 +15,11 @@ export function migrate() {
         openid VARCHAR(255) UNIQUE NOT NULL,
         ysws_eligible BOOLEAN DEFAULT FALSE,
         verification_status VARCHAR(50) DEFAULT 'unverified',
-        first_name VARCHAR(255) UNIQUE NOT NULL,
-        last_name VARCHAR(255) UNIQUE NOT NULL,
+        first_name VARCHAR(255) NOT NULL,
+        last_name VARCHAR(255) NOT NULL,
         primary_email VARCHAR(255) UNIQUE NOT NULL,
-        slack_id VARCHAR(255) UNIQUE,
+        slack_id VARCHAR(255),
         slack_welcome_sent BOOLEAN DEFAULT FALSE,
-        role VARCHAR(50) DEFAULT 'user',
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
     );

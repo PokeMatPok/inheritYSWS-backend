@@ -8,8 +8,8 @@ const slackApp = new App({
     port: process.env.SLACK_PORT ? parseInt(process.env.SLACK_PORT) : 3001,
 });
 
-export function sendMessageToSlack(channel: string, text: string, blocks?: any[]) {
-    slackApp.client.chat.postMessage({
+export async function sendMessageToSlack(channel: string, text: string, blocks?: any[]) {
+    await slackApp.client.chat.postMessage({
         channel: channel,
         text: text,
         blocks: blocks

@@ -11,8 +11,8 @@ const corsConfig = {
 
 const authRouter = express.Router();
 
-function sendWelcome(id: "string", firstName: string) {
-    sendMessageToSlack(id, `${firstName}! Welcome to Inherit! :tada:`, [
+async function sendWelcome(id: string, firstName: string) {
+    await sendMessageToSlack(id, `${firstName}! Welcome to Inherit! :tada:`, [
         {
             "type": "image",
             "image_url": "https://raw.githubusercontent.com/PokeMatPok/inheritYSWS-backend/main/assets/welcome_slack_orpheus.png",
@@ -85,93 +85,103 @@ authRouter.get('/login', (req, res, next) => {
     res.redirect((process.env.FRONTEND_URL || 'http://localhost:5173') + '/home');
 });
 
-authRouter.get('/oauth', (req, res) => {
+authRouter.get('/oauth', async (req, res) => {
     const OauthCode = req.query.code as string;
 
     console.log('Received OAuth code:', OauthCode);
 
-    fetch('https://auth.hackclub.com/oauth/token', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            "client_id": process.env.HACKCLUB_OAUTH_CLIENT_ID,
-            "client_secret": process.env.HACKCLUB_OAUTH_CLIENT_SECRET,
-            "redirect_uri": process.env.HACKCLUB_OAUTH_REDIRECT_URI,
-            "code": OauthCode,
-            "grant_type": "authorization_code"
-        })
-    }).then((response: Response) => response.json())
-        .then((data) => {
-            console.log('Received OAuth token response:', data);
-            const accessToken = data.access_token;
-            if (!accessToken) {
-                console.error('No access token received from Hack Club OAuth:', data);
-                return res.status(500).json({ error: 'Internal Server Error. Further information not available.' });
-            }
+    try {
+        const tokenResponse: Response = await fetch('https://auth.hackclub.com/oauth/token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                "client_id": process.env.HACKCLUB_OAUTH_CLIENT_ID,
+                "client_secret": process.env.HACKCLUB_OAUTH_CLIENT_SECRET,
+                "redirect_uri": process.env.HACKCLUB_OAUTH_REDIRECT_URI,
+                "code": OauthCode,
+                "grant_type": "authorization_code"
+            })
+        });
 
-            fetch('https://auth.hackclub.com/api/v1/me', {
+        const data = await tokenResponse.json();
+
+        console.log('Received OAuth token response:', data);
+        const accessToken = data.access_token;
+        if (!accessToken) {
+            console.error('No access token received from Hack Club OAuth:', data);
+            return res.status(500).json({ error: 'Internal Server Error. Further information not available.' });
+        }
+
+        try {
+            const userResponse: Response = await fetch('https://auth.hackclub.com/api/v1/me', {
                 headers: {
                     'Authorization': `Bearer ${accessToken}`
                 }
-            }).then((response: Response) => response.json())
-                .then((userData) => {
+            });
 
-                    const identity = userData.identity || {};
+            const userData = await userResponse.json();
 
-                    //console.log('Received user data from Hack Club:', userData);
-                    // dev only ^
+            const identity = userData.identity || {};
 
-                    // write to db if not exists
-                    db.query('SELECT * FROM users WHERE openid = $1', [identity.id])
-                        .then((result) => {
-                            if (result.rows.length === 0) {
+            //console.log('Received user data from Hack Club:', userData);
+            // dev only ^
 
-                                // User doesn't exist, create a new one
-                                db.query('INSERT INTO users (openid, first_name, last_name, primary_email, slack_id, role) VALUES ($1, $2, $3, $4, $5, $6)', [
-                                    identity.id,
-                                    identity.first_name,
-                                    identity.last_name,
-                                    identity.primary_email,
-                                    identity.slack_id,
-                                    "user"
-                                ]).catch((err) => {
-                                    console.error('Error creating user in database:', err);
-                                    return res.status(500).json({ error: 'Internal Server Error. Further information not available.' });
-                                });
+            // write to db if not exists
+            try {
+                const result = await db.query('SELECT * FROM users WHERE openid = $1', [identity.id]);
 
-                                try {
-                                    sendWelcome(identity.slack_id, identity.first_name);
+                if (result.rows.length === 0) {
 
-                                    db.query('UPDATE users SET slack_welcome_sent = TRUE WHERE openid = $1', [identity.id])
-                                        .catch((err) => {
-                                            console.error('Error updating slack_welcome_sent in database:', err);
-                                        });
-                                } catch (err) {
-                                    console.error('Error sending welcome message:', err);
-                                }
-                            }
+                    // User doesn't exist, create a new one
+                    await db.query('INSERT INTO users (openid, first_name, last_name, primary_email, slack_id) VALUES ($1, $2, $3, $4, $5)', [
+                        identity.id,
+                        identity.first_name,
+                        identity.last_name,
+                        identity.primary_email,
+                        identity.slack_id
+                    ]);
 
-                            const userPayload: UserPayload = {
-                                id: result.rows.length > 0 ? result.rows[0].id : -1, // You might want to fetch the ID of the newly created user here
-                                username: userData.first_name + ' ' + userData.last_name,
-                                email: userData.primary_email,
-                                role: 'user' // Default role, you can modify this as needed
-                            };
+                    try {
+                        //slightly slower because of serial, but then the users will surely get their message :yay:
+                        await sendWelcome(identity.slack_id, identity.first_name);
+                        await db.query('UPDATE users SET slack_welcome_sent = TRUE WHERE openid = $1', [identity.id])
+                    } catch (err) {
+                        console.error('Error sending welcome message:', err);
+                    };
+                } else if (!result.rows[0].slack_welcome_sent) {
+                    try {
+                        await sendWelcome(identity.slack_id, identity.first_name);
+                        await db.query('UPDATE users SET slack_welcome_sent = TRUE WHERE openid = $1', [identity.id])
+                    } catch (err) {
+                        console.error('Error sending welcome message:', err);
+                    };
+                }
 
-                            res.cookie('token', generateToken(userPayload), { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
-                            return res.redirect((process.env.FRONTEND_URL || 'http://localhost:5173') + '/home');
-                        })
-                        .catch((err) => {
-                            console.error('Error checking user in database:', err);
-                            return res.status(500).json({ error: 'Internal Server Error. Further information not available.' });
-                        });
-                }).catch((err) => {
-                    console.error('Error fetching user data from Hack Club:', err);
-                    return res.status(500).json({ error: 'Internal Server Error. Further information not available.' });
-                });
-        });
+                const inserted = await db.query('SELECT * FROM users WHERE openid = $1', [identity.id]);
+
+                const userPayload: UserPayload = {
+                    id: inserted.rows.length > 0 ? inserted.rows[0].id : -1, // You might want to fetch the ID of the newly created user here
+                    username: identity.first_name + ' ' + identity.last_name,
+                    email: identity.primary_email,
+                    role: 'user' // Default role, you can modify this as needed
+                };
+
+                res.cookie('token', generateToken(userPayload), { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+                return res.redirect((process.env.FRONTEND_URL || 'http://localhost:5173') + '/home');
+            } catch (err) {
+                console.error('Error checking user in database:', err);
+                return res.status(500).json({ error: 'Internal Server Error. Further information not available.' });
+            }
+        } catch (err) {
+            console.error('Error fetching user data from Hack Club:', err);
+            return res.status(500).json({ error: 'Internal Server Error. Further information not available.' });
+        }
+    } catch (err) {
+        console.error('Error fetching OAuth token:', err);
+        return res.status(500).json({ error: 'Internal Server Error. Further information not available.' });
+    }
 });
 
 export default authRouter;

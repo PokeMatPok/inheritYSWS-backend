@@ -2,6 +2,7 @@ import express from 'express';
 import { authenticate, AuthenticatedRequest, generateToken, UserPayload } from '../middleware/auth';
 import { db } from '../db';
 import cors from 'cors';
+import { sendMessageToSlack } from '../slack/init';
 
 const corsConfig = {
     origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
@@ -9,6 +10,57 @@ const corsConfig = {
 }
 
 const authRouter = express.Router();
+
+function sendWelcome(id: "string", firstName: string) {
+    sendMessageToSlack(id, `${firstName}! Welcome to Inherit! :tada:`, [
+        {
+            "type": "image",
+            "image_url": "https://raw.githubusercontent.com/PokeMatPok/inheritYSWS-backend/main/assets/welcome_slack_orpheus.png",
+            "alt_text": "desk dino"
+        },
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": `Hey ${firstName}! Welcome to Inherit :dino:`,
+                "emoji": true
+            },
+            "level": 1
+        },
+        {
+            "type": "rich_text",
+            "elements": [
+                {
+                    "type": "rich_text_section",
+                    "elements": [
+                        {
+                            "type": "text",
+                            "text": " Here's the deal: you pick an abandoned project, claim it, set a prize goal, then make it awesome again. We track your hours with Hackatime, you submit a PR, get it reviewed by peers, and when it merges—boom, your prize ships. It's open source with actual rewards for bringing dead code back to life. Check the help page if you need details, or dive into browsing projects and see what catches your eye!"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "Continue picking your project with the button at the right"
+            },
+            "accessory": {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": ":arrow:\t Claim your project!",
+                    "emoji": true
+                },
+                "value": "click_me_123",
+                "url": "https://google.com",
+                "action_id": "button-action"
+            }
+        }
+    ]);
+}
 
 authRouter.get('/check', cors(corsConfig), (req, res, next) => {
     authenticate(req, res, next, (_) => {
@@ -20,7 +72,7 @@ authRouter.get('/check', cors(corsConfig), (req, res, next) => {
 
 authRouter.get('/login', (req, res, next) => {
     authenticate(req, res, next, (message) => {
-        const base_oauth = "https://auth.hackclub.com/oauth/authorize?client_id=458bb3d47635184bf985866fa2f917bc&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fauth%2Foauth&response_type=code&scope=openid+email+name+profile+verification_status+slack_id"
+        const base_oauth = `https://auth.hackclub.com/oauth/authorize?client_id=${process.env.HACKCLUB_OAUTH_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.HACKCLUB_OAUTH_REDIRECT_URI ?? "")}&response_type=code&scope=openid+email+name+profile+verification_status+slack_id`;
         const email = req.query.email as string;
 
         if (!email) {
@@ -30,7 +82,7 @@ authRouter.get('/login', (req, res, next) => {
         }
     });
 }, (req, res) => {
-    res.sendStatus(200);
+    res.redirect((process.env.FRONTEND_URL || 'http://localhost:5173') + '/home');
 });
 
 authRouter.get('/oauth', (req, res) => {
@@ -84,6 +136,17 @@ authRouter.get('/oauth', (req, res) => {
                                     console.error('Error creating user in database:', err);
                                     return res.status(500).json({ error: 'Failed to create user in database.' });
                                 });
+
+                                try {
+                                    sendWelcome(userData.slack_id, userData.first_name);
+
+                                    db.query('UPDATE users SET slack_welcome_sent = TRUE WHERE openid = $1', [userData.id])
+                                        .catch((err) => {
+                                            console.error('Error updating slack_welcome_sent in database:', err);
+                                        });
+                                } catch (err) {
+                                    console.error('Error sending welcome message:', err);
+                                }
                             }
 
                             const userPayload: UserPayload = {
@@ -94,7 +157,7 @@ authRouter.get('/oauth', (req, res) => {
                             };
 
                             res.cookie('token', generateToken(userPayload), { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
-                            return res.json({ message: 'Authentication successful', user: userPayload });
+                            return res.redirect((process.env.FRONTEND_URL || 'http://localhost:5173') + '/home');
                         })
                         .catch((err) => {
                             console.error('Error checking user in database:', err);

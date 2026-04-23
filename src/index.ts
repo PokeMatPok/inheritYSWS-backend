@@ -6,6 +6,9 @@ import authRouter from './routes/auth';
 import { authenticate, AuthenticatedRequest } from './middleware/auth';
 import cookie from 'cookie-parser';
 import cors from 'cors';
+import dns from 'dns';
+import os from 'os';
+import slackApp, { sendMessageToSlack } from './slack/init';
 
 const NoColor = process.env.NO_COLOR !== undefined && process.env.NO_COLOR !== "";
 
@@ -37,6 +40,13 @@ if (NoColor) {
 
 dotenv.config();
 
+// start slack app
+slackApp.start().then(() => {
+    logger.log('Slack app started.');
+}).catch((err) => {
+    logger.error('Failed to start Slack app:', err);
+});
+
 const app = express();
 const port = 3000;
 
@@ -60,6 +70,10 @@ logger.loader('Connecting to the database...', Promise.all([
     logger.error('Database connection error:', err);
 }));
 
+if (!process.env.CORS_ORIGIN) {
+    logger.warn('CORS_ORIGIN is not set, using http://localhost:5173. This should be configured in production.');
+}
+
 const corsConfig = {
     origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
     credentials: true
@@ -76,19 +90,14 @@ app.get('/protected', authenticate, (req, res) => {
 });
 
 app.listen(port, () => {
-    logger.log(`Port ${port} is up and running!`);
-
     try {
-        const dns = require('node:dns');
-        const os = require('node:os');
-
         const options = { family: 4 };
 
         dns.lookup(os.hostname(), options, (err: NodeJS.ErrnoException | null, addr: string) => {
             if (err) {
                 throw err;
             } else {
-                logger.debug('Local: http://localhost:' + port + '/ Network: http://' + addr + ':' + port + '/');
+                logger.debug(logger.whenColor(Colors.Dim) + 'Local:' + logger.whenColor(Colors.Reset) + ' http://localhost:' + port + '/ ' + logger.whenColor(Colors.Dim) + 'Network:' + logger.whenColor(Colors.Reset) + ' http://' + addr + ':' + port + '/');
             }
         });
 

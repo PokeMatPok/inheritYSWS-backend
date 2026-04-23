@@ -19,9 +19,32 @@ export function migrate() {
         last_name VARCHAR(255) UNIQUE NOT NULL,
         primary_email VARCHAR(255) UNIQUE NOT NULL,
         slack_id VARCHAR(255) UNIQUE,
+        slack_welcome_sent BOOLEAN DEFAULT FALSE,
         role VARCHAR(50) DEFAULT 'user',
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS projects (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        status VARCHAR(50) DEFAULT 'open',
+        creator_id INTEGER REFERENCES users(id),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS roles (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) UNIQUE NOT NULL,
+        description TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS user_roles (
+        user_id INTEGER REFERENCES users(id),
+        role_id INTEGER REFERENCES roles(id),
+        PRIMARY KEY (user_id, role_id)
     );
     `;
 

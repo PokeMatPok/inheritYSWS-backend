@@ -30,6 +30,8 @@ type LogConfig = {
     // respect the NoColor flag to disable colors in logs
     NoColor?: boolean;
     Console: console.Console;
+
+    Callback?: (level: 'debug' | 'info' | 'warn' | 'error', message: string) => void;
 }
 
 export class LogDriver {
@@ -40,6 +42,12 @@ export class LogDriver {
     }
 
     log(...args: any[]) {
+
+        if (this.config.Callback) {
+            const message = args.map(arg => typeof arg === 'string' ? arg : JSON.stringify(arg)).join(' ');
+            this.config.Callback('info', message);
+        }
+
         this.config.NoColor
             ? this.config.Console.log(`[${this.config.AppName}]`, ...args)
             :
@@ -47,6 +55,11 @@ export class LogDriver {
     }
 
     debug(...args: any[]) {
+        if (this.config.Callback) {
+            const message = args.map(arg => typeof arg === 'string' ? arg : JSON.stringify(arg)).join(' ');
+            this.config.Callback('debug', message);
+        }
+
         this.config.NoColor
             ? this.config.Console.debug(`[${this.config.AppName}]`, ...args)
             :
@@ -54,12 +67,22 @@ export class LogDriver {
     }
 
     warn(...args: any[]) {
+        if (this.config.Callback) {
+            const message = args.map(arg => typeof arg === 'string' ? arg : JSON.stringify(arg)).join(' ');
+            this.config.Callback('warn', message);
+        }
+
         this.config.NoColor ? this.config.Console.warn(`[${this.config.AppName}]`, ...args)
             :
             this.config.Console.warn(`${this.config.LogColors.Warning}[${this.config.AppName}]${Colors.Reset}`, ...args);
     }
 
     error(...args: any[]) {
+        if (this.config.Callback) {
+            const message = args.map(arg => typeof arg === 'string' ? arg : JSON.stringify(arg)).join(' ');
+            this.config.Callback('error', message);
+        }
+
         this.config.NoColor ? this.config.Console.error(`[${this.config.AppName}]`, ...args)
             :
 
@@ -77,5 +100,15 @@ export class LogDriver {
             clearInterval(interval);
             process.stdout.write(`\r${this.config.LogColors.Info}✓${Colors.Reset} ${' '.repeat(3) + Message}\r\n`);
         });
+    }
+
+    isNoColor() {
+        return this.config.NoColor;
+    }
+
+    whenColor(Message: string) {
+        if (!this.config.NoColor) {
+            return Message;
+        }
     }
 }

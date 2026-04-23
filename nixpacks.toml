@@ -1,2 +1,8 @@
+[phases.setup]
+nixPkgs = ["bun", "nodejs_22"]
+
 [phases.install]
-cmds = ["bun install"]
+cmds = ["bun install --no-frozen-lockfile"]
+
+[start]
+cmd = "bun run start-bun"

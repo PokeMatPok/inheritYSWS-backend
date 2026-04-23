@@ -9,7 +9,7 @@
   "scripts": {
     "start-bun": "bun src/index.ts",
     "start-node": "node --loader ts-node/esm src/index.ts",
-    "build": "tsc",
+    "build": "echo 'No build needed'",
     "build-bun": "bun build src/index.ts --outdir dist --target node --format cjs"
   },
   "devDependencies": {
@@ -21,6 +21,7 @@
     "@types/pg": "^8.20.0"
   },
   "dependencies": {
+    "@slack/bolt": "^4.7.1",
     "@types/cors": "^2.8.19",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",

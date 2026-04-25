@@ -168,23 +168,8 @@ authRouter.get('/oauth', async (req, res) => {
                     role: 'user' // Default role, you can modify this as needed
                 };
 
-                res
-                    .cookie('token', generateToken(userPayload), {
-                        httpOnly: true,
-                        secure: true,
-                        sameSite: 'none'
-                    })
-                    .status(200)
-                    .set('Content-Type', 'text/html')
-                    .send(`
-    <html>
-      <body>
-        <script>
-          window.location.href = "/home";
-        </script>
-      </body>
-    </html>
-  `);
+                res.cookie('token', generateToken(userPayload), { httpOnly: true, secure: true, sameSite: 'none' });
+                return res.redirect((process.env.FRONTEND_URL || 'http://localhost:5173') + '/home');
             } catch (err) {
                 console.error('Error checking user in database:', err);
                 return res.status(500).json({ error: 'Internal Server Error. Further information not available.' });

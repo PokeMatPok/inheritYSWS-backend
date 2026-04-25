@@ -62,6 +62,57 @@ async function sendWelcome(id: string, firstName: string) {
     ]);
 }
 
+async function sendWaitlistWelcome(id: string, firstName: string) {
+    await sendMessageToSlack(id, `${firstName}! You're on the Inherit waitlist! :dino:`, [
+        {
+            "type": "image",
+            "image_url": "https://raw.githubusercontent.com/PokeMatPok/inheritYSWS-backend/main/assets/welcome_slack_orpheus.png",
+            "alt_text": "desk dino"
+        },
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": `Hey ${firstName}! You're on the waitlist :dino:`,
+                "emoji": true
+            },
+            "level": 1
+        },
+        {
+            "type": "rich_text",
+            "elements": [
+                {
+                    "type": "rich_text_section",
+                    "elements": [
+                        {
+                            "type": "text",
+                            "text": "Thanks for signing up! Inherit isn't quite ready yet—I'm still working out the details with Hack Club. But here's the plan: you'll be able to pick abandoned projects, revive them, and earn actual prizes for your work. I'll message you here as soon as we're ready to launch. For now, just sit tight!"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "Want to learn more about what's coming?"
+            },
+            "accessory": {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": "Back to Inherit",
+                    "emoji": false
+                },
+                "value": "back_to_site",
+                "url": "https://inherit.dino.icu",
+                "action_id": "button-action"
+            }
+        }
+    ]);
+}
+
 authRouter.get('/check', cors(corsConfig), (req, res, next) => {
     authenticate(req, res, next, (_) => {
         return res.status(200).json({ authenticated: false });
@@ -152,7 +203,7 @@ authRouter.get('/oauth', async (req, res) => {
                     };
                 } else if (!result.rows[0].slack_welcome_sent) {
                     try {
-                        await sendWelcome(identity.slack_id, identity.first_name);
+                        await sendWaitlistWelcome(identity.slack_id, identity.first_name);
                         await db.query('UPDATE users SET slack_welcome_sent = TRUE WHERE openid = $1', [identity.id])
                     } catch (err) {
                         console.error('Error sending welcome message:', err);

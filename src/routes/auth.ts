@@ -196,7 +196,7 @@ authRouter.get('/oauth', async (req, res) => {
 
                     try {
                         //slightly slower because of serial, but then the users will surely get their message :yay:
-                        await sendWelcome(identity.slack_id, identity.first_name);
+                        await sendWaitlistWelcome(identity.slack_id, identity.first_name);
                         await db.query('UPDATE users SET slack_welcome_sent = TRUE WHERE openid = $1', [identity.id])
                     } catch (err) {
                         console.error('Error sending welcome message:', err);

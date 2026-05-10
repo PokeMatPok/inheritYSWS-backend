@@ -45,6 +45,33 @@ export function migrate() {
         role_id INTEGER REFERENCES roles(id),
         PRIMARY KEY (user_id, role_id)
     );
+
+    CREATE TABLE IF NOT EXISTS project_contributors (
+        id SERIAL PRIMARY KEY,
+        slack_id VARCHAR(255) UNIQUE,
+        email VARCHAR(255) UNIQUE,
+        openid VARCHAR(255) UNIQUE,
+        display_name VARCHAR(255) NOT NULL,
+        verification_token_hash VARCHAR(255),
+        verification_token_expires_at TIMESTAMPTZ,
+        verified_at TIMESTAMPTZ,
+        user_id INTEGER REFERENCES users(id)
+    );
+
+	CREATE TABLE IF NOT EXISTS project_contributions (
+		id SERIAL PRIMARY KEY,
+		contributor_id INTEGER NOT NULL REFERENCES project_contributors(id) ON DELETE CASCADE,
+		title VARCHAR(255) NOT NULL,
+		description TEXT,
+		github_url TEXT,
+		improvement_areas TEXT,
+		languages_used TEXT,
+		difficulty_rating INTEGER CHECK (difficulty_rating BETWEEN 1 AND 5),
+		status VARCHAR(50) DEFAULT 'pending',
+		indexed_at TIMESTAMPTZ,
+		created_at TIMESTAMPTZ DEFAULT NOW(),
+		updated_at TIMESTAMPTZ DEFAULT NOW()
+	);
     `;
 
     return db.query(migrationQuery);

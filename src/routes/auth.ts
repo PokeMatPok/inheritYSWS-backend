@@ -2,7 +2,7 @@ import express from 'express';
 import { authenticate, AuthenticatedRequest, generateToken, UserPayload } from '../middleware/auth';
 import { db } from '../db';
 import cors from 'cors';
-import { sendMessageToSlack } from '../slack/init';
+import { sendMessageToSlack } from '../services/slack';
 
 const corsConfig = {
     origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
@@ -118,7 +118,16 @@ authRouter.get('/check', cors(corsConfig), (req, res, next) => {
         return res.status(200).json({ authenticated: false });
     });
 }, (req, res) => {
-    return res.status(200).json({ authenticated: true, user: (req as AuthenticatedRequest).user });
+
+    const user = (req as AuthenticatedRequest).user;
+
+    return res.status(200).json({ authenticated: true, user: {
+        username: user?.username,
+        firstName: user?.firstName,
+        lastName: user?.lastName,
+        email: user?.email,
+        role: user?.role
+    }}); // hardcoded user info selection, avoid leaking sensitive info (user object may change in the future)
 });
 
 authRouter.get('/login', (req, res, next) => {
@@ -139,8 +148,6 @@ authRouter.get('/login', (req, res, next) => {
 authRouter.get('/oauth', async (req, res) => {
     const OauthCode = req.query.code as string;
 
-    console.log('Received OAuth code:', OauthCode);
-
     try {
         const tokenResponse: Response = await fetch('https://auth.hackclub.com/oauth/token', {
             method: 'POST',
@@ -158,7 +165,6 @@ authRouter.get('/oauth', async (req, res) => {
 
         const data = await tokenResponse.json();
 
-        console.log('Received OAuth token response:', data);
         const accessToken = data.access_token;
         if (!accessToken) {
             console.error('No access token received from Hack Club OAuth:', data);
@@ -213,10 +219,13 @@ authRouter.get('/oauth', async (req, res) => {
                 const inserted = await db.query('SELECT * FROM users WHERE openid = $1', [identity.id]);
 
                 const userPayload: UserPayload = {
-                    id: inserted.rows.length > 0 ? inserted.rows[0].id : -1, // You might want to fetch the ID of the newly created user here
+                    id: inserted.rows.length > 0 ? inserted.rows[0].id : -1,
                     username: identity.first_name + ' ' + identity.last_name,
+                    firstName: identity.first_name,
+                    lastName: identity.last_name,
                     email: identity.primary_email,
-                    role: 'user' // Default role, you can modify this as needed
+                    role: 'user',
+                    openid: identity.id
                 };
 
                 res.cookie('token', generateToken(userPayload), { httpOnly: true, secure: true, sameSite: 'none' });

@@ -10,7 +10,10 @@ export type UserPayload = {
     id: number;
     username: string;
     email: string;
+    firstName: string;
+    lastName: string;
     role: string;
+    openid: string;
 }
 
 

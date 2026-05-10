@@ -8,8 +8,10 @@ import cookie from 'cookie-parser';
 import cors from 'cors';
 import dns from 'dns';
 import os from 'os';
-import slackApp, { sendMessageToSlack } from './slack/init';
+import slackApp, { sendMessageToSlack } from './services/slack';
 import rateLimit from 'express-rate-limit';
+import { initializeResend } from './services/resend';
+import projectSubmissionRouter from './routes/projectSubmit';
 
 const NoColor = process.env.NO_COLOR !== undefined && process.env.NO_COLOR !== "";
 
@@ -47,6 +49,9 @@ slackApp.start().then(() => {
 }).catch((err) => {
     logger.error('Failed to start Slack app:', err);
 });
+
+// start resend
+initializeResend();
 
 const app = express();
 const port = 3000;
@@ -91,10 +96,7 @@ app.use(cors(corsConfig));
 app.use(cookie());
 
 app.use('/auth', authRouter);
-
-app.get('/protected', authenticate, (req, res) => {
-    res.json({ message: 'This is a protected route! Hello ' + (req as AuthenticatedRequest).user?.username });
-});
+app.use('/projects', projectSubmissionRouter);
 
 app.listen(port, () => {
     try {

@@ -86,9 +86,13 @@ const corsConfig = {
 }
 
 var limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
-  max: 100, // 100 per windowMs (15 min)
+    windowMs: 15 * 60 * 1000, // 15 min
+    max: 100, // 100 per windowMs (15 min)
+    standardHeaders: true,
+    legacyHeaders: false,
 });
+
+app.set('trust proxy', 1);
 
 app.use(limiter);
 app.use(express.json());
